@@ -1,5 +1,7 @@
 import gymnasium as gym
+import numpy as np
 from gymnasium.envs.toy_text.frozen_lake import generate_random_map
+import random
 
 
 def action_to_text(action):
@@ -19,20 +21,17 @@ def action_to_text(action):
 
 
 class QLearningAgent:
+    NUM_ACTIONS = 4
     """
     Initialize a Q-Learning agent.
     Args:
         Rows, Columns: number of rows and columns in the maze
         Epsilon: Whether to act on policy or randomly
     """
-    def __init__(self, rows, columns, epsilon):
+    def __init__(self, rows: int, columns: int, epsilon: float):
+        num_of_states = rows * columns
         # Initialize q table to all zeroes
-        self.q_table = []
-        for _ in range(rows):
-            row = []
-            for _ in range(columns):
-                row.append(0)
-            self.q_table.append(row)
+        self.q_table = np.zeros((num_of_states, QLearningAgent.NUM_ACTIONS))
         # Initialize hyperparameters
         self.epsilon = epsilon
 

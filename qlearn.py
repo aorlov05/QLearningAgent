@@ -74,47 +74,103 @@ class QLearningAgent:
         map.close()
         self.epsilon = old_epsilon
 
+    def greedy_reaches_goal(self, env):
+        """
+        Run one test episode that only follows the q table (epsilon = 0) and never learns from it,
+        returns true if the greedy policy walks from the start to the goal
+        """
+        old_epsilon = self.epsilon
+        self.epsilon = 0  # Always follow policy
+        observation, info = env.reset()
+        done = False
+        while not done:
+            action = self.choose_action(observation)
+            observation, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
+        self.epsilon = old_epsilon
+        # terminated means it landed on a hole or the goal; truncated means it hit the step limit
+        return terminated and reward == 10
 
-# Initialise the environment
-my_map = generate_random_map(size=8)
-env = gym.make("FrozenLake-v1",
-               # render_mode="human",
-               map_name="8x8",
-               # desc=my_map,
-               is_slippery=False,
-               success_rate=0.8,
-               reward_schedule=(10, -10, 0))
 
-agent = QLearningAgent(8, 8, 0.8, 0.8, 0.95)
-print(agent.q_table)
-# Reset the environment to generate the first observation
-episodes = 100000
-observation, info = env.reset(seed=42)
-print("start state is ", observation)
-for _ in range(episodes):
-    done = False
-    while not done:
-        # epsilon greedy policy
-        action = agent.choose_action(observation)
-        previous_state = observation
-        # step (transition) through the environment with the action
-        # receiving the next observation, reward and if the episode has terminated or truncated
-        observation, reward, terminated, truncated, info = env.step(action)
-        print("Transition (s,a,r,s'): ", previous_state, action_to_text(action), reward, observation)
-        # If the episode has ended then we can reset to start a new episode
-        agent.update_q_table(previous_state, action, reward, observation)
-        if terminated or truncated:
-            observation, info = env.reset()
-            done = True
+def run_map(agent, env, episodes: int):
+    """
+    Trains the agent until its greedy policy can walk from the start to the goal
+    """
+    observation, info = env.reset(seed=42)
+    goal_found = False  # the greedy policy can't reach the goal before training has reached it once
+    for episode in range(episodes):
+        done = False
+        while not done:
+            # epsilon greedy policy
+            action = agent.choose_action(observation)
+            previous_state = observation
+            # step (transition) through the environment with the action
+            # receiving the next observation, reward and if the episode has terminated or truncated
+            observation, reward, terminated, truncated, info = env.step(action)
+            print("Transition (s,a,r,s'): ", previous_state, action_to_text(action), reward, observation)
+            agent.update_q_table(previous_state, action, reward, observation)
+            if terminated or truncated:
+                done = True
+                if reward == 10:
+                    goal_found = True
 
-env.close()
-print(agent.q_table)
+        # After every training episode, test whether the greedy policy can now reach the goal
+        if goal_found and agent.greedy_reaches_goal(env):
+            print(f"Map {env.unwrapped.nrow}x{env.unwrapped.ncol} learned after {episode + 1} episodes")
+            env.close()
+            return episode + 1
 
-# Solve based on q table
-agent.run_solution(gym.make("FrozenLake-v1",
-                        render_mode="human",
-                        map_name="8x8",
-                        # desc=my_map,
-                        is_slippery=False,
-                        success_rate=0.8,
-                        reward_schedule=(10, -10, 0)))
+        # Start the next training episode from the beginning
+        observation, info = env.reset()
+    env.close()
+    return None
+
+
+def initialize_and_run_map(size, episodes):
+    """
+    Initializes a runs a random map of given size x size. First does training then
+    displays the solution
+    """
+    if size == 4:
+        four_by_four_map = generate_random_map(size=4)
+        env4x4 = gym.make("FrozenLake-v1",
+                          # render_mode="human",
+                          map_name="4x4",
+                          desc=four_by_four_map,
+                          is_slippery=False,
+                          success_rate=0.8,
+                          reward_schedule=(10, -10, 0))
+
+        agent4x4 = QLearningAgent(4, 4, 0.8, 0.8, 0.95)
+        run_map(agent4x4, env4x4, episodes)
+        agent4x4.run_solution(gym.make("FrozenLake-v1",
+                                       render_mode="human",
+                                       map_name="4x4",
+                                       desc=four_by_four_map,
+                                       is_slippery=False,
+                                       success_rate=0.8,
+                                       reward_schedule=(10, -10, 0)))
+    elif size == 8:
+        eight_by_eight_map = generate_random_map(size=8)
+        env8x8 = gym.make("FrozenLake-v1",
+                          # render_mode="human",
+                          map_name="8x8",
+                          desc=eight_by_eight_map,
+                          is_slippery=False,
+                          success_rate=0.8,
+                          reward_schedule=(10, -10, 0))
+        agent8x8 = QLearningAgent(8, 8, 0.8, 0.8, 0.95)
+        run_map(agent8x8, env8x8, episodes)
+        agent8x8.run_solution(gym.make("FrozenLake-v1",
+                                       render_mode="human",
+                                       map_name="8x8",
+                                       desc=eight_by_eight_map,
+                                       is_slippery=False,
+                                       success_rate=0.8,
+                                       reward_schedule=(10, -10, 0)))
+    else:
+        raise ValueError("Invalid size")
+
+
+# initialize_and_run_map(8)
+initialize_and_run_map(4, 100000)

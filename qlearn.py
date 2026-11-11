@@ -95,6 +95,7 @@ class QLearningAgent:
 def run_map(agent, env, episodes: int):
     """
     Trains the agent until its greedy policy can walk from the start to the goal
+    Returns the number of episodes it takes
     """
     observation, info = env.reset(seed=42)
     goal_found = False  # the greedy policy can't reach the goal before training has reached it once
@@ -107,7 +108,8 @@ def run_map(agent, env, episodes: int):
             # step (transition) through the environment with the action
             # receiving the next observation, reward and if the episode has terminated or truncated
             observation, reward, terminated, truncated, info = env.step(action)
-            print("Transition (s,a,r,s'): ", previous_state, action_to_text(action), reward, observation)
+            # Can uncomment to see transitions
+            # print("Transition (s,a,r,s'): ", previous_state, action_to_text(action), reward, observation)
             agent.update_q_table(previous_state, action, reward, observation)
             if terminated or truncated:
                 done = True
@@ -126,10 +128,10 @@ def run_map(agent, env, episodes: int):
     return None
 
 
-def initialize_and_run_map(size, episodes):
+def initialize_and_run_map(size, episodes, show_solution):
     """
-    Initializes a runs a random map of given size x size. First does training then
-    displays the solution
+    Initializes a runs a random map of given size x size. First do training then
+    displays the solution. Episodes is the max number of episodes to find solution before giving up
     """
     if size == 4:
         four_by_four_map = generate_random_map(size=4)
@@ -137,40 +139,67 @@ def initialize_and_run_map(size, episodes):
                           # render_mode="human",
                           map_name="4x4",
                           desc=four_by_four_map,
-                          is_slippery=False,
+                          is_slippery=True,
                           success_rate=0.8,
                           reward_schedule=(10, -10, 0))
 
         agent4x4 = QLearningAgent(4, 4, 0.8, 0.8, 0.95)
-        run_map(agent4x4, env4x4, episodes)
-        agent4x4.run_solution(gym.make("FrozenLake-v1",
-                                       render_mode="human",
-                                       map_name="4x4",
-                                       desc=four_by_four_map,
-                                       is_slippery=False,
-                                       success_rate=0.8,
-                                       reward_schedule=(10, -10, 0)))
+        required_episodes = run_map(agent4x4, env4x4, episodes)
+        if show_solution:
+            agent4x4.run_solution(gym.make("FrozenLake-v1",
+                                           render_mode="human",
+                                           map_name="4x4",
+                                           desc=four_by_four_map,
+                                           is_slippery=True,
+                                           success_rate=0.8,
+                                           reward_schedule=(10, -10, 0)))
+        return required_episodes
     elif size == 8:
         eight_by_eight_map = generate_random_map(size=8)
         env8x8 = gym.make("FrozenLake-v1",
                           # render_mode="human",
                           map_name="8x8",
                           desc=eight_by_eight_map,
-                          is_slippery=False,
+                          is_slippery=True,
                           success_rate=0.8,
                           reward_schedule=(10, -10, 0))
         agent8x8 = QLearningAgent(8, 8, 0.8, 0.8, 0.95)
-        run_map(agent8x8, env8x8, episodes)
-        agent8x8.run_solution(gym.make("FrozenLake-v1",
-                                       render_mode="human",
-                                       map_name="8x8",
-                                       desc=eight_by_eight_map,
-                                       is_slippery=False,
-                                       success_rate=0.8,
-                                       reward_schedule=(10, -10, 0)))
+        required_episodes = run_map(agent8x8, env8x8, episodes)
+        if show_solution:
+            agent8x8.run_solution(gym.make("FrozenLake-v1",
+                                           render_mode="human",
+                                           map_name="8x8",
+                                           desc=eight_by_eight_map,
+                                           is_slippery=True,
+                                           success_rate=0.8,
+                                           reward_schedule=(10, -10, 0)))
+        return required_episodes
     else:
         raise ValueError("Invalid size")
 
+# For part A, simply call this line, and pass in size (4, 8), max number of episodes, and if
+# the solution should be displayed on the map
+# initialize_and_run_map(4, 100000, True)
 
-# initialize_and_run_map(8)
-initialize_and_run_map(4, 100000)
+# Take samples to find average number of episodes (and standard deviation)
+# Can change map to make deterministic or stochastic
+NUM_OF_SAMPLES = 1000
+
+min_number_of_samples_4x4 = []
+for i in range(NUM_OF_SAMPLES):
+    required_episodes = initialize_and_run_map(4, 100000, False)
+    min_number_of_samples_4x4.append(required_episodes)
+
+print(f"4x4 Mean: {np.mean(min_number_of_samples_4x4)}")
+print(f"4x4 Std: {np.std(min_number_of_samples_4x4)}")
+
+# Should reduce number of samples to something small
+# min_number_of_samples_8x8 = []
+# for i in range(NUM_OF_SAMPLES):
+#     required_episodes = initialize_and_run_map(8, 150000, False)
+#     min_number_of_samples_8x8.append(required_episodes)
+#
+# learned = [n for n in min_number_of_samples_8x8 if n is not None]
+# print(f"8x8 learned {len(learned)}/{NUM_OF_SAMPLES} maps within 150000 episodes")
+# print(f"8x8 Mean: {np.mean(learned)}")
+# print(f"8x8 Std: {np.std(learned, ddof=1)}")
